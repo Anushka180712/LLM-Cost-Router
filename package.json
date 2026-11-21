@@ -1,0 +1,118 @@
+{
+  "name": "llm-cost-router",
+  "displayName": "LLM Cost Router",
+  "description": "Sends easy prompts to cheap models and hard prompts to expensive models, with cost tracking, budgets, escalation and failover.",
+  "version": "0.1.0",
+  "publisher": "anushka180712",
+  "author": "Udisha Singh",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Anushka180712/LLM-Cost-Router"
+  },
+  "engines": {
+    "vscode": "^1.90.0",
+    "node": ">=20"
+  },
+  "categories": ["AI", "Other"],
+  "keywords": ["llm", "router", "cost", "claude", "openai", "ai"],
+  "main": "./out/src/extension.js",
+  "bin": {
+    "llm-router": "./out/src/cli.js"
+  },
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      { "command": "llmRouter.ask", "title": "Ask (auto-routed)", "category": "LLM Router" },
+      { "command": "llmRouter.askAboutSelection", "title": "Ask About Selection", "category": "LLM Router" },
+      { "command": "llmRouter.askWithTier", "title": "Ask a Specific Tier", "category": "LLM Router" },
+      { "command": "llmRouter.explainRoute", "title": "Preview Routing Decision (free)", "category": "LLM Router" },
+      { "command": "llmRouter.showDashboard", "title": "Show Cost Dashboard", "category": "LLM Router" },
+      { "command": "llmRouter.setApiKey", "title": "Set API Key", "category": "LLM Router" },
+      { "command": "llmRouter.resetStats", "title": "Reset Usage Stats", "category": "LLM Router" },
+      { "command": "llmRouter.showLog", "title": "Show Routing Log", "category": "LLM Router" }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "llmRouter.askAboutSelection", "when": "editorHasSelection", "group": "llmRouter@1" }
+      ]
+    },
+    "keybindings": [
+      { "command": "llmRouter.ask", "key": "ctrl+alt+l", "mac": "cmd+alt+l" },
+      { "command": "llmRouter.askAboutSelection", "key": "ctrl+alt+shift+l", "mac": "cmd+alt+shift+l", "when": "editorHasSelection" }
+    ],
+    "configuration": {
+      "title": "LLM Cost Router",
+      "properties": {
+        "llmRouter.models": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Models to route between. Leave empty to use the defaults (Claude Haiku 5.5 → Sonnet 5.5 → Opus 5.5). Each entry needs `id`, `tier` (`cheap`, `balanced` or `premium`), `provider` (`anthropic` or `openai-compatible`), `model`, `inputPricePerMTok` and `outputPricePerMTok`. See the README for examples.",
+          "items": {
+            "type": "object",
+            "required": ["id", "tier", "provider", "model", "inputPricePerMTok", "outputPricePerMTok"],
+            "properties": {
+              "id": { "type": "string", "description": "Short unique name, also usable as an inline override (@id)." },
+              "tier": { "type": "string", "enum": ["cheap", "balanced", "premium"] },
+              "provider": { "type": "string", "enum": ["anthropic", "openai-compatible"] },
+              "model": { "type": "string", "description": "Model name sent to the provider API." },
+              "inputPricePerMTok": { "type": "number", "description": "USD per 1M input tokens." },
+              "outputPricePerMTok": { "type": "number", "description": "USD per 1M output tokens." },
+              "baseUrl": { "type": "string", "description": "API base URL (for openai-compatible providers, e.g. http://localhost:11434/v1)." },
+              "apiKeyEnv": { "type": "string", "description": "Environment variable to read the key from if none is saved." },
+              "effort": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"], "description": "Anthropic effort level for this model." },
+              "maxOutputTokens": { "type": "number" }
+            }
+          }
+        },
+        "llmRouter.thresholds.balanced": {
+          "type": "number", "default": 0.3, "minimum": 0, "maximum": 1,
+          "description": "Difficulty score at or above which prompts go to the balanced tier."
+        },
+        "llmRouter.thresholds.premium": {
+          "type": "number", "default": 0.6, "minimum": 0, "maximum": 1,
+          "description": "Difficulty score at or above which prompts go to the premium tier."
+        },
+        "llmRouter.dailyBudgetUsd": {
+          "type": "number", "default": 0, "minimum": 0,
+          "description": "Daily spend cap in USD. When the next request would go over it, the router uses the cheap tier. 0 turns it off."
+        },
+        "llmRouter.escalateOnLowConfidence": {
+          "type": "boolean", "default": true,
+          "description": "If the answer is empty or sounds unsure, retry on the next tier up."
+        },
+        "llmRouter.maxEscalations": {
+          "type": "number", "default": 1, "minimum": 0, "maximum": 2,
+          "description": "Maximum escalations per request."
+        },
+        "llmRouter.failover": {
+          "type": "boolean", "default": true,
+          "description": "If a model errors (rate limit, outage, missing key), try another configured model."
+        },
+        "llmRouter.maxOutputTokens": {
+          "type": "number", "default": 4096, "minimum": 1,
+          "description": "Default max output tokens per request."
+        },
+        "llmRouter.systemPrompt": {
+          "type": "string", "default": "",
+          "description": "Optional system prompt sent with every request."
+        },
+        "llmRouter.showRoutingNotification": {
+          "type": "boolean", "default": true,
+          "description": "Show which model a prompt was routed to in the status bar."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "test": "tsc -p . && node --test \"out/test/**/*.test.js\"",
+    "vscode:prepublish": "npm run compile",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.5.0"
+  }
+}
